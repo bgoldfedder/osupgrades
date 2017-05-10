@@ -32,45 +32,45 @@ import traceback
 import optparse
 import math
 
-"""Thermos upgrade values in the format (thermos_count, upgrade_percent)"""
-thermos_upgrades_available = [
+"""Tier1 upgrade values in the format (tier1_count, upgrade_percent)"""
+tier1_upgrades_available = [
     (100, 100),
     (200, 200)
 ]
 
-"""Briefcae upgrade values in the format (briefcase_count, upgrade_percent)"""
-briefcase_upgrades_available = [
+"""Tiers upgrade values in the format (tier2_count, upgrade_percent)"""
+tier2_upgrades_available = [
     (150, 150),
     (250, 250)
 ]
 
 
-def thermos_bonus():
-    """This method returns the bonus for each thermos crafted"""
+def tier1_bonus():
+    """This method returns the bonus for each tier1 crafted"""
     return 0.01
 
 
-def briefcase_bonus():
-    """This method returns the bonus for each briefcase crafted"""
-    return 0.12
+def tier2_bonus():
+    """This method returns the bonus for each tier2 crafted"""
+    return 0.18
 
 
-def create_state(thermos_count=0, briefcase_count=0,
-                 thermos_upgrades=[], briefcase_upgrades=[],
+def create_state(tier1_count=0, tier2_count=0,
+                 tier1_upgrades=[], tier2_upgrades=[],
                  curr_bonus=0):
     """This method creates a state tuple from the given inputs"""
-    return (thermos_count, briefcase_count,
-            thermos_upgrades, briefcase_upgrades,
+    return (tier1_count, tier2_count,
+            tier1_upgrades, tier2_upgrades,
             curr_bonus)
 
 
-def thermos_count(state):
-    """This method returns the number of thermoses in the given state"""
+def tier1_count(state):
+    """This method returns the number of tier1s in the given state"""
     return state[0]
 
 
-def briefcase_count(state):
-    """This method returns the number of briefcases in the given state"""
+def tier2_count(state):
+    """This method returns the number of tier2s in the given state"""
     return state[1]
 
 
@@ -79,43 +79,49 @@ def current_bonus(state):
     return state[4]
 
 
-def calc_bonus(thermos_count, briefcase_count,
-               thermos_upgrades, briefcase_upgrades):
+def calc_bonus(tier1_count, tier2_count,
+               tier1_upgrades, tier2_upgrades):
 
-    # print("{},{}".format(thermos_count, briefcase_count))
+    # print("{},{}".format(tier1_count, tier2_count))
 
-    if (thermos_count < 0):
+    if (tier1_count < 0):
         return 0
 
-    return (1 + (thermos_count * thermos_bonus())) * \
-        (1 + (briefcase_count * briefcase_bonus())) - 1
+    return (1 + (tier1_count * tier1_bonus())) * \
+        (1 + (tier2_count * tier2_bonus())) - 1
 
 
 def next_state(state):
     """This method determines the next best state, given the input state"""
-    (thermos_count, briefcase_count,
-        thermos_upgrades, briefcase_upgrades, curr_bonus) = state
+    (tier1_count, tier2_count,
+        tier1_upgrades, tier2_upgrades, curr_bonus) = state
 
-    new_briefcase_bonus = calc_bonus(thermos_count - 8, briefcase_count + 1,
-                                     thermos_upgrades, briefcase_upgrades)
+    new_tier2_bonus = calc_bonus(tier1_count - 8, tier2_count + 1,
+                                 tier1_upgrades, tier2_upgrades)
 
-    new_thermos_bonus = calc_bonus(thermos_count + 1, briefcase_count,
-                                   thermos_upgrades, briefcase_upgrades)
+    new_tier1_bonus = calc_bonus(tier1_count + 1, tier2_count,
+                                 tier1_upgrades, tier2_upgrades)
 
-    # print("{}, {}, curr: {:.2f} thermos: {:.2f} briefcase: {:.2f}".format(
-    #     thermos_count, briefcase_count, curr_bonus * 100,
-    #     new_thermos_bonus * 100,
-    #     new_briefcase_bonus * 100))
+    # print("{}, {}, curr: {:.2f} tier1: {:.2f} tier2: {:.2f}".format(
+    #     tier1_count, tier2_count, curr_bonus * 100,
+    #     new_tier1_bonus * 100,
+    #     new_tier2_bonus * 100))
 
-    if (new_briefcase_bonus <= curr_bonus and
-            new_thermos_bonus > new_briefcase_bonus):
-        return next_state(create_state(thermos_count + 1, briefcase_count,
-                                       thermos_upgrades, briefcase_upgrades,
-                                       new_thermos_bonus))
+    if (new_tier2_bonus <= curr_bonus and
+            new_tier1_bonus > new_tier2_bonus):
+        return next_state(create_state(tier1_count + 1, tier2_count,
+                                       tier1_upgrades, tier2_upgrades,
+                                       new_tier1_bonus))
     else:
-        return create_state(thermos_count - 8, briefcase_count + 1,
-                            thermos_upgrades, briefcase_upgrades, 
-                            new_briefcase_bonus)
+        new_state = create_state(tier1_count - 8, tier2_count + 1,
+                                 tier1_upgrades, tier2_upgrades,
+                                 new_tier2_bonus)
+
+        print("At {:>4} T1, new counts {:>4} T1, {:>4} T2, bonus {:.2f}%"
+              .format(tier1_count, tier1_count - 8,
+                      tier2_count + 1, new_tier2_bonus * 100))
+
+        return new_state
 
 
 def main(options, args):
@@ -130,13 +136,12 @@ def main(options, args):
 
     state = create_state()
 
-    while (thermos_count(state) < options.max):
+    while (tier1_count(state) < options.max):
         state = next_state(state)
-        if (thermos_count(state) < options.max):
-            print("{:6d},{:6d} => {:.2f}".format(
-                thermos_count(state), briefcase_count(state),
-                round(calc_bonus(thermos_count(state), briefcase_count(state),
-                                 [], []) * 100, 2)))
+        # if (tier1_count(state) < options.max):
+        #     print("{:6d},{:6d} => {:.2f}".format(
+        #         tier1_count(state), tier2_count(state),
+        #         round(current_bonus(state) * 100, 2)))
 
 
 if __name__ == '__main__':
@@ -146,7 +151,7 @@ if __name__ == '__main__':
             usage=globals()['__doc__'], version='$Id$')
         parser.add_option('-m', '--max', action='store',
                           type='int', default=10000,
-                          help='Maximum thermos count [10000 default]')
+                          help='Maximum tier1 count [10000 default]')
         parser.add_option('-v', '--verbose', action='store_true',
                           default=False, help='verbose output')
         (options, args) = parser.parse_args()
