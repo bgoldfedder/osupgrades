@@ -34,14 +34,17 @@ import math
 
 """Tier1 upgrade values in the format (tier1_count, upgrade_percent)"""
 tier1_upgrades_available = [
-    (100, 100),
-    (200, 200)
+    {'type': 'tier1', 'count': 150, 'bonus': 100},
+    {'type': 'tier1', 'count': 375, 'bonus': 100},
+    {'type': 'tier1', 'count': 450, 'bonus': 100}
 ]
 
 """Tiers upgrade values in the format (tier2_count, upgrade_percent)"""
 tier2_upgrades_available = [
-    (150, 150),
-    (250, 250)
+    {'type': 'tier2', 'count': 65, 'bonus': 200},
+    {'type': 'tier2', 'count': 112, 'bonus': 200},
+    {'type': 'tier2', 'count': 150, 'bonus': 300},
+    {'type': 'tier2', 'count': 282, 'bonus': 300}
 ]
 
 
@@ -79,28 +82,102 @@ def current_bonus(state):
     return state[4]
 
 
-def calc_bonus(tier1_count, tier2_count,
-               tier1_upgrades, tier2_upgrades):
+def calc_bonus(tier1_count, tier2_count):
 
-    # print("{},{}".format(tier1_count, tier2_count))
+    # print("{},{} {} --- {}".format(tier1_count, tier2_count,
+    #                                tier1_upgrades, tier2_upgrades))
 
-    if (tier1_count < 0):
+    if (tier1_count < 0 or tier2_count < 0):
         return 0
 
-    return (1 + (tier1_count * tier1_bonus())) * \
-        (1 + (tier2_count * tier2_bonus())) - 1
+    base_bonus = (1 + (tier1_count * tier1_bonus())) * \
+        (1 + (tier2_count * tier2_bonus()))
+
+    return base_bonus - 1
+
+
+def calc_upgraded_state(state, upgrade_list):
+    if (len(upgrade_list) == 0):
+        return None
+
+    (tier1_count, tier2_count,
+        tier1_upgrades, tier2_upgrades, curr_bonus) = state
+
+    price = upgrade_list[0]
+
+    if (price['type'] == 'tier1'):
+        tier1_count = tier1_count - price['count']
+        if (tier1_count < 0):
+            return None
+
+        tier1_upgrades = list(tier1_upgrades)
+        tier1_upgrades.append(price)
+    elif(price['type'] == 'tier2'):
+        tier2_count = tier2_count - price['count']
+        if (tier2_count < 0):
+            return None
+
+        tier2_upgrades = list(tier2_upgrades)
+        tier2_upgrades.append(price)
+    else:
+        raise "Unknown type: " + price.type
+
+    new_bonus = (1 + calc_bonus(tier1_count, tier2_count)) * \
+        ((price['bonus'] / 100) + 1) - 1
+
+    if (new_bonus > curr_bonus):
+
+        del upgrade_list[0]
+
+        return create_state(tier1_count, tier2_count,
+                            tier1_upgrades, tier2_upgrades, new_bonus)
+
+    return None
+
+
+def display_action(action,
+                   old_tier1_count, old_tier2_count,
+                   new_tier1_count, new_tier2_count,
+                   new_bonus):
+
+    print(("At {:>4},{:>4}, {:>15}, new counts {:>4} T1, " +
+          " {:>4} T2, new bonus {:.2f}%")
+          .format(old_tier1_count, old_tier2_count,
+                  action,
+                  new_tier1_count, new_tier2_count,
+                  new_bonus * 100))
 
 
 def next_state(state):
     """This method determines the next best state, given the input state"""
+
+    upgraded_state = calc_upgraded_state(state, tier1_upgrades_available)
+
+    if (upgraded_state):
+        display_action("Buy T1 Upgrade",
+                       state[0], state[1],
+                       upgraded_state[0], upgraded_state[1],
+                       upgraded_state[4])
+
+        return upgraded_state
+
+    upgraded_state = calc_upgraded_state(state, tier2_upgrades_available)
+
+    if (upgraded_state):
+
+        display_action("Buy T2 Upgrade",
+                       state[0], state[1],
+                       upgraded_state[0], upgraded_state[1],
+                       upgraded_state[4])
+
+        return upgraded_state
+
     (tier1_count, tier2_count,
         tier1_upgrades, tier2_upgrades, curr_bonus) = state
 
-    new_tier2_bonus = calc_bonus(tier1_count - 8, tier2_count + 1,
-                                 tier1_upgrades, tier2_upgrades)
+    new_tier2_bonus = calc_bonus(tier1_count - 8, tier2_count + 1)
 
-    new_tier1_bonus = calc_bonus(tier1_count + 1, tier2_count,
-                                 tier1_upgrades, tier2_upgrades)
+    new_tier1_bonus = calc_bonus(tier1_count + 1, tier2_count)
 
     # print("{}, {}, curr: {:.2f} tier1: {:.2f} tier2: {:.2f}".format(
     #     tier1_count, tier2_count, curr_bonus * 100,
@@ -109,17 +186,24 @@ def next_state(state):
 
     if (new_tier2_bonus <= curr_bonus and
             new_tier1_bonus > new_tier2_bonus):
+
+        bonus_to_beat = max(new_tier1_bonus, curr_bonus)
         return next_state(create_state(tier1_count + 1, tier2_count,
                                        tier1_upgrades, tier2_upgrades,
-                                       new_tier1_bonus))
+                                       bonus_to_beat))
     else:
         new_state = create_state(tier1_count - 8, tier2_count + 1,
                                  tier1_upgrades, tier2_upgrades,
                                  new_tier2_bonus)
 
-        print("At {:>4} T1, new counts {:>4} T1, {:>4} T2, bonus {:.2f}%"
-              .format(tier1_count, tier1_count - 8,
-                      tier2_count + 1, new_tier2_bonus * 100))
+        # print("At {:>4},{:>4} T1, new counts {:>4} T1, {:>4} T2, bonus {:.2f}%"
+        #       .format(tier1_count, tier2_count, tier1_count - 8,
+        #               tier2_count + 1, new_tier2_bonus * 100))
+
+        display_action("Buy 1 T2",
+                       tier1_count, tier2_count,
+                       tier1_count - 8, tier2_count + 1,
+                       new_tier2_bonus)
 
         return new_state
 
@@ -129,8 +213,8 @@ def main(options, args):
 
     # for i in range(38, 50):
     #     print("{},{},{:.2f},{},{},{:.2f}".format(
-    #           i, 8, calc_bonus(i, 8, [], []) * 100,
-    #           i - 8, 9, calc_bonus(i - 8, 9, [], []) * 100))
+    #           i, 8, calc_bonus(i, 8 * 100,
+    #           i - 8, 9, calc_bonus(i - 8, 9) * 100))
 
     # sys.exit(0)
 
